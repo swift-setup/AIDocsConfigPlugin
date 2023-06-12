@@ -14,6 +14,7 @@ enum AIDocsConfigError: LocalizedError {
     case noConfigIdSet
     case noTeamIdSet
     case missingValues
+    case missingApiEndpoint
 
     var errorDescription: String? {
         switch self {
@@ -23,6 +24,8 @@ enum AIDocsConfigError: LocalizedError {
                 return "No config id set"
             case .noTeamIdSet:
                 return "No team ID set"
+            case .missingApiEndpoint:
+                return "Missing Api Endpoint"
             case .missingValues:
                 return "No config values fetched from the server. You need to fetch first!"
         }
@@ -30,8 +33,6 @@ enum AIDocsConfigError: LocalizedError {
 }
 
 class AIDocsConfigModel: ObservableObject {
-    let endpoint = "http://localhost:3000"
-
     @Published var schema: JSON? = nil
     @Published var values: JSON? = nil
     @Published var isLoading = false
@@ -56,7 +57,7 @@ class AIDocsConfigModel: ObservableObject {
             self.values = nil
             self.schema = nil
             self.rawConfigs = []
-            let schema = await self.fetchSchema()
+            let schema = try await self.fetchSchema()
             let values = try await self.fetchValues()
             self.schema = schema
             self.values = EdgeConfig.toJSONMap(configs: values)
@@ -102,7 +103,11 @@ class AIDocsConfigModel: ObservableObject {
     }
 
     @MainActor
-    internal func fetchSchema() async -> JSON {
+    internal func fetchSchema() async throws -> JSON {
+        let endpoint: String? = self.storeUtils.get(forKey: .StoreKey.apiEndpoint.rawValue, from: self.plugin)
+        guard let endpoint = endpoint else {
+            throw AIDocsConfigError.missingApiEndpoint
+        }
         let url = URL(string: endpoint)!.appending(path: "config")
         let (data, _) = try! await URLSession.shared.data(from: url)
         let json = try! JSON(data: data)
@@ -136,7 +141,6 @@ class AIDocsConfigModel: ObservableObject {
             }
 
             let differences = EdgeConfig.findDifferences(configs: self.rawConfigs, from: values)
-            // 'https://api.vercel.com/v1/edge-config/your_edge_config_id_here/items?teamId=your_team_id_here';
             let url = apiEndpoint
                 .appending(path: configName)
                 .appending(path: "items")
