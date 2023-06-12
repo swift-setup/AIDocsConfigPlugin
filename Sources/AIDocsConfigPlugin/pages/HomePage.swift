@@ -13,7 +13,7 @@ struct HomePage: View {
     @StateObject var model: AIDocsConfigModel = .init()
     let panelUtils: NSPanelUtilsProtocol
     let storeUtils: StoreUtilsProtocol
-    let plugin: (any PluginInterfaceProtocol)
+    let plugin: any PluginInterfaceProtocol
 
     var body: some View {
         HStack {
@@ -27,6 +27,7 @@ struct HomePage: View {
 //            }
 //            .frame(minWidth: 0, maxWidth: .infinity)
         }
+        .padding()
         .environmentObject(model)
         .task {
             model.update(storeUtils: storeUtils, panelUtils: panelUtils, plugin: plugin)
